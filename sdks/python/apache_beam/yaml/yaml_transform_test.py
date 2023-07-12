@@ -25,7 +25,6 @@ import unittest
 import yaml
 
 import apache_beam as beam
-from apache_beam.options import pipeline_options
 from apache_beam.testing.util import assert_that
 from apache_beam.testing.util import equal_to
 from apache_beam.yaml import yaml_provider

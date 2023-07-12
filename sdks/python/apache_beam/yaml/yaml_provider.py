@@ -42,7 +42,6 @@ from apache_beam.portability.api import schema_pb2
 from apache_beam.transforms import external
 from apache_beam.transforms import window
 from apache_beam.transforms.fully_qualified_named_transform import FullyQualifiedNamedTransform
-from apache_beam.transforms.ptransform import InputT, OutputT
 from apache_beam.typehints import schemas
 from apache_beam.typehints import trivial_inference
 from apache_beam.utils import python_callable
@@ -314,7 +313,7 @@ def create_builtin_provider():
         return schema_pb2.FieldType(
             iterable_type=schema_pb2.RowType(schema=parse_schema(spec[0])))
       else:
-        raise ValueError(f"Unknown schema type: {spec}")
+        raise ValueError("Unknown schema type: {spec}")
 
     def parse_schema(spec):
       return schema_pb2.Schema(
@@ -324,10 +323,8 @@ def create_builtin_provider():
           ],
           id=str(uuid.uuid4()))
 
-    if 'schema' not in args.keys():
-      raise ValueError("WithSchema transform missing required 'schema' tag.")
-    named_tuple = schemas.named_tuple_from_schema(parse_schema(args['schema']))
-    names = list(args['schema'].keys())
+    named_tuple = schemas.named_tuple_from_schema(parse_schema(args))
+    names = list(args.keys())
 
     def extract_field(x, name):
       if isinstance(x, dict):
@@ -391,8 +388,7 @@ def create_builtin_provider():
   ios = {
       key: getattr(apache_beam.io, key)
       for key in dir(apache_beam.io)
-      # TODO - match other patterns such as ReadAllFrom
-      if key.startswith('ReadFrom') or key.startswith('WriteTo') or key.startswith('ReadAllFrom')
+      if key.startswith('ReadFrom') or key.startswith('WriteTo')
   }
 
   return InlineProvider(
