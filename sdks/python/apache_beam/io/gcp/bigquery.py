@@ -2682,14 +2682,14 @@ class ReadFromBigQuery(PTransform):
     }
 
   def expand(self, pcoll):
-    if self.method is ReadFromBigQuery.Method.EXPORT:
+    if self.method == ReadFromBigQuery.Method.EXPORT:
       output_pcollection = self._expand_export(pcoll)
-    elif self.method is ReadFromBigQuery.Method.DIRECT_READ:
+    elif self.method == ReadFromBigQuery.Method.DIRECT_READ:
       output_pcollection = self._expand_direct_read(pcoll)
 
     else:
       raise ValueError(
-          'The method to read from BigQuery must be either EXPORT'
+          'The method to read from BigQuery must be either EXPORT '
           'or DIRECT_READ.')
     return self._expand_output_type(output_pcollection)
 

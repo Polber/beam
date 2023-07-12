@@ -25,6 +25,7 @@ import unittest
 import yaml
 
 import apache_beam as beam
+from apache_beam.options import pipeline_options
 from apache_beam.testing.util import assert_that
 from apache_beam.testing.util import equal_to
 from apache_beam.yaml import yaml_provider
@@ -181,6 +182,37 @@ class YamlTransformE2ETest(unittest.TestCase):
               Flatten
           ''')
       assert_that(result, equal_to([1, 4, 9, 1, 8, 27]))
+
+  def test_read_from_bigquery(self):
+    with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(
+        pickle_library='cloudpickle')) as p:
+      # TODO(robertwb): Consider making the input implicit (and below).
+      expected = [{'name': 'Jeff', 'year': 1995, 'country': 'USA'} for _ in range(5)]
+      result = p | YamlTransform(
+          '''
+          type: 
+            chain
+          transforms:
+            - type: ReadFromBigQuery
+              name: ReadFromBigQuery
+              method: DIRECT_READ
+              use_native_datetime: true
+              table: jkinard_test_table
+              dataset: jkinard_test
+              project: cloud-teleport-testing
+              gcs_location: gs://jkinard-test-templates
+            - type: PyFilter  # equivalent to -> keep: 'lambda x: x["name"]=="Bob"'
+              name: PyFilter
+              path: file.py
+              func: my_filter
+              language: python
+            - type: PyMap  # equivalent to -> fn: 'lambda x: x["name"]="Jeff"'
+              name: PyMap
+              path: file.js
+              func: my_map
+              language: javascript
+          ''')
+      assert_that(result, equal_to(expected))
 
   def test_chain_with_input(self):
     with beam.Pipeline(options=beam.options.pipeline_options.PipelineOptions(

@@ -42,6 +42,7 @@ from apache_beam.portability.api import schema_pb2
 from apache_beam.transforms import external
 from apache_beam.transforms import window
 from apache_beam.transforms.fully_qualified_named_transform import FullyQualifiedNamedTransform
+from apache_beam.transforms.ptransform import InputT, OutputT
 from apache_beam.typehints import schemas
 from apache_beam.typehints import trivial_inference
 from apache_beam.utils import python_callable
@@ -313,7 +314,7 @@ def create_builtin_provider():
         return schema_pb2.FieldType(
             iterable_type=schema_pb2.RowType(schema=parse_schema(spec[0])))
       else:
-        raise ValueError("Unknown schema type: {spec}")
+        raise ValueError(f"Unknown schema type: {spec}")
 
     def parse_schema(spec):
       return schema_pb2.Schema(
@@ -323,8 +324,10 @@ def create_builtin_provider():
           ],
           id=str(uuid.uuid4()))
 
-    named_tuple = schemas.named_tuple_from_schema(parse_schema(args))
-    names = list(args.keys())
+    if 'schema' not in args.keys():
+      raise ValueError("WithSchema transform missing required 'schema' tag.")
+    named_tuple = schemas.named_tuple_from_schema(parse_schema(args['schema']))
+    names = list(args['schema'].keys())
 
     def extract_field(x, name):
       if isinstance(x, dict):
@@ -388,23 +391,22 @@ def create_builtin_provider():
   ios = {
       key: getattr(apache_beam.io, key)
       for key in dir(apache_beam.io)
-      if key.startswith('ReadFrom') or key.startswith('WriteTo')
+      # TODO - match other patterns such as ReadAllFrom
+      if key.startswith('ReadFrom') or key.startswith('WriteTo') or key.startswith('ReadAllFrom')
   }
 
   return InlineProvider(
       dict({
           'Create': lambda elements,
           reshuffle=True: beam.Create(elements, reshuffle),
-          'PyMap': lambda fn: beam.Map(
-              python_callable.PythonCallableWithSource(fn)),
+          'PyMap': PyMap,
           'PyMapTuple': lambda fn: beam.MapTuple(
               python_callable.PythonCallableWithSource(fn)),
           'PyFlatMap': lambda fn: beam.FlatMap(
               python_callable.PythonCallableWithSource(fn)),
           'PyFlatMapTuple': lambda fn: beam.FlatMapTuple(
               python_callable.PythonCallableWithSource(fn)),
-          'PyFilter': lambda keep: beam.Filter(
-              python_callable.PythonCallableWithSource(keep)),
+          'PyFilter': PyFilter,
           'PyTransform': fully_qualified_named_transform,
           'PyToRow': lambda fields: beam.Select(
               **{
@@ -417,6 +419,60 @@ def create_builtin_provider():
           'GroupByKey': beam.GroupByKey,
       },
            **ios))
+
+
+class UdfTransform(beam.PTransform):
+  def __init__(self, func: str=None, path:str=None, language:str="javascript"):
+    super().__init__()
+    self.func = func
+    self.path = path
+    self.language = language
+
+    if (self.func is None) ^ (self.path is None):
+      raise ValueError("Must specify path and func together")
+
+  def expand(self, pcolls):
+    return pcolls | "ApplyUDF" >> beam.ParDo(lambda element: [json.loads(self.invoke_udf(element))])
+
+  def invoke_udf(self, element):
+    if self.language == "javascript":
+      import js2py
+      output = getattr(js2py.run_file(self.path)[1], self.func)(str(json.dumps(element)))
+      return output
+    with open(self.path, 'r') as f:
+      contents = f.read()
+      return python_callable.PythonCallableWithSource.load_from_script(contents)(str(json.dumps(element)))
+
+class PyFilter(UdfTransform):
+  def __init__(self, keep: str=None, func: str=None, path:str=None, language:str="javascript"):
+    super().__init__(func, path, language)
+    self.keep = keep
+
+    if (self.keep, self.func, self.path) is (None, None, None):
+      raise ValueError("Must specify keep or func and path")
+    if self.keep and self.path:
+      raise ValueError("Cannot specify keep with func and path.")
+  def expand(self, pcolls):
+    if self.keep:
+      return pcolls | beam.Filter(
+              python_callable.PythonCallableWithSource(self.keep))
+
+    return pcolls | beam.Filter(lambda element: self.invoke_udf(element))
+
+class PyMap(UdfTransform):
+  def __init__(self, fn: str = None, func: str = None, path: str = None, language: str = "javascript"):
+    super().__init__(func, path, language)
+    self._fn = fn
+
+    if (self._fn, self.func, self.path) is (None, None, None):
+      raise ValueError("Must specify fn or func and path")
+    if self._fn and self.path:
+      raise ValueError("Cannot specify fn with func and path.")
+  def expand(self, pcolls):
+    if self._fn:
+      return pcolls | beam.Map(python_callable.PythonCallableWithSource(self._fn))
+
+    return pcolls | "PyMapUDF" >> beam.ParDo(lambda element: [json.loads(self.invoke_udf(element))])
 
 
 class PypiExpansionService:

@@ -50,7 +50,7 @@ class RowTypeConstraint(typehints.TypeConstraint):
       user_type,
       schema_options: Optional[Sequence[Tuple[str, Any]]] = None,
       field_options: Optional[Dict[str, Sequence[Tuple[str, Any]]]] = None):
-    """For internal use only, no backwards comatibility guaratees.  See
+    """For internal use only, no backwards compatibility guarantees.  See
     https://beam.apache.org/documentation/programming-guide/#schemas-for-pl-types
     for guidance on creating PCollections with inferred schemas.
 
