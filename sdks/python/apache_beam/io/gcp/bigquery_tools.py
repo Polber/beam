@@ -104,7 +104,7 @@ UNKNOWN_MIME_TYPE = 'application/octet-stream'
 BQ_STREAMING_INSERT_TIMEOUT_SEC = 120
 
 _PROJECT_PATTERN = r'([a-z0-9.-]+:)?[a-z][a-z0-9-]*[a-z0-9]'
-_DATASET_PATTERN = r'\w{1,1024}'
+_DATASET_PATTERN = r'[\w-]{1,1024}'
 _TABLE_PATTERN = r'[\p{L}\p{M}\p{N}\p{Pc}\p{Pd}\p{Zs}$]{1,1024}'
 
 # TODO(https://github.com/apache/beam/issues/25946): Add support for

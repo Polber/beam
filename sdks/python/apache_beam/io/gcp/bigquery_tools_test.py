@@ -135,6 +135,7 @@ class TestTableReferenceParser(unittest.TestCase):
       ('project:dataset.test- table', 'project', 'dataset', 'test- table'),
       ('project.dataset. test_table', 'project', 'dataset', ' test_table'),
       ('project.dataset.test$table', 'project', 'dataset', 'test$table'),
+      ('project.my-dataset.test$table', 'project', 'my-dataset', 'test$table'),
   ])
   def test_calling_with_fully_qualified_table_ref(
       self,
