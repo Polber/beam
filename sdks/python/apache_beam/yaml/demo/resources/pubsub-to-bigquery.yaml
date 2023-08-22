@@ -1,0 +1,23 @@
+pipeline:
+  type: "chain"
+  transforms:
+    - type: "ReadFromPubSub"
+      config:
+        subscription: "projects/cloud-teleport-testing/subscriptions/jkinard-yaml-test-sub"
+        with_attributes: False
+    - type: JsonToDict
+    - type: "WriteToBigQuery"
+      config:
+        table: "jkinard-yaml-table"
+        dataset: "jkinard_test"
+        project: "cloud-teleport-testing"
+        schema: "name:STRING,number:INT64"
+        create_disposition: "CREATE_IF_NEEDED"
+        write_disposition: "WRITE_APPEND"
+  providers:
+    - type: "pythonPackage"
+      config:
+        packages:
+          - gs://jkinard-test-templates/yaml/transforms-0.0.1.tar.gz
+      transforms:
+        JsonToDict: "transforms.json_to_dict.JsonToDict"

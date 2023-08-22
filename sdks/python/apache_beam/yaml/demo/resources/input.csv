@@ -1,0 +1,5 @@
+letter,number,is_alpha
+a,1,True
+b,2,False
+c,3,True
+d,4,False

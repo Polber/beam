@@ -347,7 +347,7 @@ def expand_leaf_transform(spec, scope):
     return outputs
   elif isinstance(outputs, (tuple, list)):
     return {'out{ix}': pcoll for (ix, pcoll) in enumerate(outputs)}
-  elif isinstance(outputs, beam.PCollection):
+  elif isinstance(outputs, beam.PCollection) or isinstance(outputs, beam.io.WriteResult):
     return {'out': outputs}
   else:
     raise ValueError(

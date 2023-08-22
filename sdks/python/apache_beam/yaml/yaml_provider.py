@@ -49,6 +49,7 @@ from apache_beam.typehints import trivial_inference
 from apache_beam.utils import python_callable
 from apache_beam.utils import subprocess_server
 from apache_beam.version import __version__ as beam_version
+from apache_beam.yaml.yaml_utils import get_file_from_gcs
 
 
 class Provider:
@@ -470,8 +471,22 @@ class PypiExpansionService:
   VENV_CACHE = os.path.expanduser("~/.apache_beam/cache/venvs")
 
   def __init__(self, packages, base_python=sys.executable):
-    self._packages = packages
+    self._packages = self._parse_packages(packages + ['cloudpickle', 'dill'])
     self._base_python = base_python
+
+  @staticmethod
+  def _parse_packages(packages):
+    parsed_packages = []
+    for package in packages:
+      if package.startswith("gs://"):
+        gcs_package = get_file_from_gcs(package)
+        local_path = f'/tmp/{str(package).split("/")[-1]}'
+        with open(local_path, 'wb') as local_package_file:
+          local_package_file.write(gcs_package)
+        parsed_packages.append(local_path)
+      else:
+        parsed_packages.append(package)
+    return parsed_packages
 
   def _key(self):
     return json.dumps({'binary': self._base_python, 'packages': self._packages})
@@ -486,6 +501,9 @@ class PypiExpansionService:
       subprocess.run([python_binary, '-m', 'ensurepip'], check=True)
       subprocess.run([python_binary, '-m', 'pip', 'install'] + self._packages,
                      check=True)
+      subprocess.run([python_binary, '-m', 'pip', 'install', '-r', 'https://raw.githubusercontent.com/apache/beam/master/sdks/python/build-requirements.txt'], check=True)
+      # subprocess.run([python_binary, '-m', 'pip', 'install', 'apache-beam[gcp,test]'], check=True)
+      subprocess.run([python_binary, '-m', 'pip', 'install', '/tmp/apache-beam-2.51.0.dev0.tar.gz[gcp,test]'], check=True)
       with open(venv + '-requirements.txt', 'w') as fout:
         fout.write('\n'.join(self._packages))
     return venv

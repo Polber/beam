@@ -26,6 +26,7 @@ from apache_beam.typehints import trivial_inference
 from apache_beam.typehints.schemas import named_fields_from_element_type
 from apache_beam.utils import python_callable
 from apache_beam.yaml import yaml_provider
+from apache_beam.yaml.yaml_utils import get_file_from_gcs
 
 
 # TODO(yaml) Consider adding optional language version parameter to support ECMAScript 5 and 6
@@ -65,18 +66,7 @@ def expand_mapping_func(
         raise IOError(f'Error opening file "{path}": {e}')
 
     # GCS UDF file case
-    from google.cloud import storage
-
-    # Parse GCS file location
-    gcs_file_parts = str(path[5:]).split('/')
-    gcs_bucket_name = gcs_file_parts[0]
-    gcs_folder = '/'.join(gcs_file_parts[1:])
-
-    # Instantiates a client and downloads file to string
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(gcs_bucket_name)
-    blob = bucket.blob(gcs_folder)
-    gcs_file = blob.download_as_string().decode('utf-8')
+    gcs_file = get_file_from_gcs(path).decode('utf-8')
 
     return gcs_file
 
