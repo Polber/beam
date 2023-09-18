@@ -83,8 +83,10 @@ def _expand_javascript_mapping_func(
 
   elif callable:
     js_callable = _CustomJsObjectWrapper(js2py.eval_js(callable))
+
     def fn(__row__):
       js_callable(__row__._asdict())
+
     return fn
     # return lambda __row__: js_callable(__row__._asdict())
 
