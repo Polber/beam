@@ -1,0 +1,24 @@
+pipeline:
+  type: chain
+  transforms:
+    - type: ReadFromPubSubTemplates
+      config:
+        inputSubscription: 'projects/cloud-teleport-testing/subscriptions/jkinard-yaml-test-sub'
+    - type: PubSubToBigQueryTemplates
+      config:
+        javascriptTextTransformGcsPath: 'gs://jkinard-test-templates/yaml/udf.js'
+        javascriptTextTransformFunctionName: 'uppercaseName'
+    - type: WriteToBigQueryTemplates
+      config:
+        useStorageWriteApi: False
+        outputTableSpec: 'cloud-teleport-testing:jkinard_test.jkinard-yaml-table'
+        errorHandling:
+          output: my_error_output
+providers:
+  - type: 'javaJar'
+    config:
+      jar: '/Users/jkinard/beam/sdks/python/apache_beam/yaml/common-1.0-SNAPSHOT.jar'
+    transforms:
+      ReadFromPubSubTemplates: 'blocks:external:org.apache.beam:read_from_pubsub:v1'
+      PubSubToBigQueryTemplates: 'blocks:external:org.apache.beam:pubsub_to_bigquery:v1'
+      WriteToBigQueryTemplates: 'blocks:external:org.apache.beam:write_to_bigquery:v1'

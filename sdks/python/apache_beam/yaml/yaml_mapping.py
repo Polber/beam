@@ -79,7 +79,12 @@ def _expand_javascript_mapping_func(
     args = ', '.join(original_fields)
     js_func = f'function fn({args}) {{return ({expression})}}'
     js_callable = _CustomJsObjectWrapper(js2py.eval_js(js_func))
-    return lambda __row__: js_callable(*__row__._asdict().values())
+
+    # return lambda __row__: js_callable(*__row__._asdict().values())
+    def fn(__row__):
+      return js_callable(*__row__._asdict().values())
+
+    return fn
 
   elif callable:
     js_callable = _CustomJsObjectWrapper(js2py.eval_js(callable))
@@ -117,7 +122,11 @@ def _expand_python_mapping_func(
   else:
     source = callable
 
+  def fn(__row__):
+    return python_callable.PythonCallableWithSource(source)(__row__)
+
   return python_callable.PythonCallableWithSource(source)
+  # return fn
 
 
 def _as_callable(original_fields, expr, transform_name, language):
@@ -159,8 +168,13 @@ def exception_handling_args(error_handling_spec):
 
 def _map_errors_to_standard_format():
   # TODO(https://github.com/apache/beam/issues/24755): Switch to MapTuple.
-  return beam.Map(
-      lambda x: beam.Row(element=x[0], msg=str(x[1][1]), stack=str(x[1][2])))
+  def fn(__row__):
+    return beam.Row(
+        element=__row__[0], msg=str(__row__[1][1]), stack=str(__row__[1][2]))
+
+  return beam.Map(fn)
+  # return beam.Map(
+  #     lambda x: beam.Row(element=x[0], msg=str(x[1][1]), stack=str(x[1][2])))
 
 
 def maybe_with_exception_handling(inner_expand):
