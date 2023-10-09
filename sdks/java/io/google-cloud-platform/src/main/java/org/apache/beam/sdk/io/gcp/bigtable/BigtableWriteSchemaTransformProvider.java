@@ -24,6 +24,7 @@ import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.bigtable.v2.Mutation;
 import com.google.bigtable.v2.TimestampRange;
+import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -34,17 +35,25 @@ import java.util.List;
 import java.util.Map;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableWriteSchemaTransformProvider.BigtableWriteSchemaTransformConfiguration;
 import org.apache.beam.sdk.schemas.AutoValueSchema;
+import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
+import org.apache.beam.sdk.schemas.annotations.SchemaFieldDescription;
 import org.apache.beam.sdk.schemas.transforms.SchemaTransform;
 import org.apache.beam.sdk.schemas.transforms.SchemaTransformProvider;
 import org.apache.beam.sdk.schemas.transforms.TypedSchemaTransformProvider;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.ProcessElement;
 import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SimpleFunction;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionRowTuple;
+import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.primitives.Longs;
+
+import javax.annotation.Nullable;
 
 /**
  * An implementation of {@link TypedSchemaTransformProvider} for Bigtable Write jobs configured via
@@ -54,6 +63,9 @@ import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.primitives.Lon
  * provide no backwards compatibility guarantees, and it should not be implemented outside the Beam
  * repository.
  */
+@SuppressWarnings({
+    "nullness" // TODO(https://github.com/apache/beam/issues/20497)
+})
 @AutoService(SchemaTransformProvider.class)
 public class BigtableWriteSchemaTransformProvider
     extends TypedSchemaTransformProvider<BigtableWriteSchemaTransformConfiguration> {
@@ -95,6 +107,24 @@ public class BigtableWriteSchemaTransformProvider
           .Builder();
     }
 
+    @AutoValue
+    public abstract static class ErrorHandling {
+      @SchemaFieldDescription("The name of the output PCollection containing failed writes.")
+      public abstract String getOutput();
+
+      public static Builder builder() {
+        return new AutoValue_BigtableWriteSchemaTransformProvider_BigtableWriteSchemaTransformConfiguration_ErrorHandling
+            .Builder();
+      }
+
+      @AutoValue.Builder
+      public abstract static class Builder {
+        public abstract Builder setOutput(String output);
+
+        public abstract ErrorHandling build();
+      }
+    }
+
     /** Validates the configuration object. */
     public void validate() {
       String invalidConfigMessage =
@@ -103,13 +133,26 @@ public class BigtableWriteSchemaTransformProvider
       checkArgument(
           !this.getInstanceId().isEmpty(), String.format(invalidConfigMessage, "instance"));
       checkArgument(!this.getProjectId().isEmpty(), String.format(invalidConfigMessage, "project"));
+
+      if (this.getErrorHandling() != null) {
+        checkArgument(
+            !Strings.isNullOrEmpty(this.getErrorHandling().getOutput()),
+            invalidConfigMessage + "Output must not be empty if error handling specified.");
+      }
     }
 
+    @SchemaFieldDescription("The ID of the table to read from.")
     public abstract String getTableId();
 
+    @SchemaFieldDescription("The ID of the instance where the table resides.")
     public abstract String getInstanceId();
 
+    @SchemaFieldDescription("The GCP project ID.")
     public abstract String getProjectId();
+
+    @SchemaFieldDescription("This option specifies whether and where to output unwritable rows.")
+    @Nullable
+    public abstract ErrorHandling getErrorHandling();
 
     /** Builder for the {@link BigtableWriteSchemaTransformConfiguration}. */
     @AutoValue.Builder
@@ -119,6 +162,8 @@ public class BigtableWriteSchemaTransformProvider
       public abstract Builder setInstanceId(String instanceId);
 
       public abstract Builder setProjectId(String projectId);
+
+      public abstract Builder setErrorHandling(ErrorHandling errorHandling);
 
       /** Builds a {@link BigtableWriteSchemaTransformConfiguration} instance. */
       public abstract BigtableWriteSchemaTransformConfiguration build();
@@ -138,6 +183,11 @@ public class BigtableWriteSchemaTransformProvider
       this.configuration = configuration;
     }
 
+    private static class NoOutputDoFn<T> extends DoFn<T, Row> {
+      @ProcessElement
+      public void process(ProcessContext c) {}
+    }
+
     @Override
     public PCollectionRowTuple expand(PCollectionRowTuple input) {
       checkArgument(
@@ -155,7 +205,13 @@ public class BigtableWriteSchemaTransformProvider
               .withInstanceId(configuration.getInstanceId())
               .withProjectId(configuration.getProjectId()));
 
-      return PCollectionRowTuple.empty(input.getPipeline());
+      // Give something that can be followed.
+      PCollection<Row> postWrite =
+          beamRowMutations
+              .apply("post-write", ParDo.of(new NoOutputDoFn<>()))
+              .setRowSchema(Schema.of());
+
+      return PCollectionRowTuple.of("post_write", postWrite);
     }
   }
 

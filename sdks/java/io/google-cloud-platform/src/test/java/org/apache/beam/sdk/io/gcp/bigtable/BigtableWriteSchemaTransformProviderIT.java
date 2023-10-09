@@ -98,14 +98,26 @@ public class BigtableWriteSchemaTransformProviderIT {
             config.build().validate();
           });
     }
+
+    assertThrows(IllegalStateException.class, () -> {
+      BigtableWriteSchemaTransformConfiguration.builder()
+          .setErrorHandling(BigtableWriteSchemaTransformConfiguration.ErrorHandling.builder().build())
+          .setProjectId("project")
+          .setInstanceId("instance")
+          .setTableId("table")
+          .build()
+          .validate();
+    });
   }
 
   @Before
   public void setup() throws Exception {
-    BigtableTestOptions options =
-        TestPipeline.testingPipelineOptions().as(BigtableTestOptions.class);
-    projectId = options.as(GcpOptions.class).getProject();
-    instanceId = options.getInstanceId();
+//    BigtableTestOptions options =
+//        TestPipeline.testingPipelineOptions().as(BigtableTestOptions.class);
+//    projectId = options.as(GcpOptions.class).getProject();
+//    instanceId = options.getInstanceId();
+    projectId = "cloud-teleport-testing";
+    instanceId = "test-id-20231009-221202-416761";
 
     BigtableDataSettings settings =
         BigtableDataSettings.newBuilder().setProjectId(projectId).setInstanceId(instanceId).build();

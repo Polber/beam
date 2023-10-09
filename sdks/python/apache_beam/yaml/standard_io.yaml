@@ -26,6 +26,8 @@
   transforms:
     'ReadFromBigQuery': 'ReadFromBigQuery'
     'WriteToBigQuery': 'WriteToBigQuery'
+    'ReadFromBigtable': 'ReadFromBigtable'
+    'WriteToBigtable': 'WriteToBigtable'
   config:
     mappings:
       'ReadFromBigQuery':
@@ -38,16 +40,28 @@
         create_disposition: 'createDisposition'
         write_disposition: 'writeDisposition'
         error_handling: 'errorHandling'
+      'ReadFromBigtable':
+        'table_id': 'tableId'
+        'instance_id': 'instanceId'
+        'project_id': 'projectId'
+      'WriteToBigtable':
+        'table_id': 'tableId'
+        'instance_id': 'instanceId'
+        'project_id': 'projectId'
     underlying_provider:
       type: beamJar
       transforms:
         'ReadFromBigQuery': 'beam:schematransform:org.apache.beam:bigquery_storage_read:v1'
         'WriteToBigQuery': 'beam:schematransform:org.apache.beam:bigquery_storage_write:v2'
+        'ReadFromBigtable': 'beam:schematransform:org.apache.beam:bigtable_read:v1'
+        'WriteToBigtable': 'beam:schematransform:org.apache.beam:bigtable_write:v1'
       config:
         gradle_target: 'sdks:java:extensions:sql:expansion-service:shadowJar'
 
 - type: python
   transforms:
+#    'ReadFromBigtable': 'apache_beam.yaml.yaml_io.read_from_bigtable'
+#    'WriteToBigtable': 'apache_beam.yaml.yaml_io.write_to_bigtable'
     'ReadFromBigQuery': 'apache_beam.yaml.yaml_io.read_from_bigquery'
     # Disable until https://github.com/apache/beam/issues/28162 is resolved.
     # 'WriteToBigQuery': 'apache_beam.yaml.yaml_io.write_to_bigquery'

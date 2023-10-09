@@ -22,7 +22,6 @@ They are referenced from standard_io.py.
 Note that in the case that they overlap with other (likely Java)
 implementations of the same transforms, the configs must be kept in sync.
 """
-
 import os
 from typing import Any
 from typing import Callable
@@ -39,11 +38,35 @@ import apache_beam.io as beam_io
 from apache_beam.io import ReadFromBigQuery
 from apache_beam.io import WriteToBigQuery
 from apache_beam.io.gcp.bigquery import BigQueryDisposition
+from apache_beam.io.gcp.bigtableio import ReadFromBigtable
+from apache_beam.io.gcp.bigtableio import WriteToBigTable
 from apache_beam.portability.api import schema_pb2
 from apache_beam.typehints import schemas
 from apache_beam.yaml import json_utils
 from apache_beam.yaml import yaml_mapping
 from apache_beam.yaml import yaml_provider
+
+
+def read_from_bigtable(project_id, instance_id, table_id):
+  return ReadFromBigtable(project_id, instance_id, table_id)
+
+
+# class read_from_bigtable(PTransform):
+#   def __init__(self, project_id, instance_id, table_id):
+#     super().__init__()
+#     self.project_id = project_id
+#     self.instance_id = instance_id
+#     self.table_id = table_id
+#
+#   def expand(self, pcoll):
+#     with open('variable.pkl', 'rb') as file:
+#       my_var = pickle.load(file)
+#
+#     return pcoll | beam.ParDo(lambda x: my_var)
+
+
+def write_to_bigtable(project_id, instance_id, table_id):
+  return WriteToBigTable(project_id, instance_id, table_id, True)
 
 
 def read_from_text(path: str):
