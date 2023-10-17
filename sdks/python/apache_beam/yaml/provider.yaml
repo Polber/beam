@@ -1,0 +1,7 @@
+- type: 'javaJar'
+  config:
+    jar: 'gs://jkinard-test-templates/yaml/jars/common-1.0-SNAPSHOT.jar'
+  transforms:
+    ReadFromPubSubTemplates: 'blocks:external:org.apache.beam:read_from_pubsub:v1'
+    PubSubToBigQueryTemplates: 'blocks:external:org.apache.beam:pubsub_to_bigquery:v1'
+    WriteToBigQueryTemplates: 'blocks:external:org.apache.beam:write_to_bigquery:v1'

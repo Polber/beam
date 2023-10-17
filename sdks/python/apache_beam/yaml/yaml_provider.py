@@ -43,6 +43,7 @@ import apache_beam as beam
 import apache_beam.dataframe.io
 import apache_beam.io
 import apache_beam.transforms.util
+from apache_beam.io.filesystems import FileSystems
 from apache_beam.portability.api import schema_pb2
 from apache_beam.transforms import external
 from apache_beam.transforms import window
@@ -236,6 +237,7 @@ def java_jar(urns, jar: str):
     parsed = urllib.parse.urlparse(jar)
     if not parsed.scheme or not parsed.netloc:
       raise ValueError(f'Invalid path or url: {jar}')
+
   return ExternalJavaProvider(urns, lambda: jar)
 
 
@@ -700,8 +702,24 @@ class RenamingProvider(Provider):
     for transform in transforms.keys():
       if transform not in mappings:
         raise ValueError(f'Missing transform {transform} in mappings.')
-    self._mappings = mappings
+    self._mappings = self.get_mappings_from_transform(mappings)
     self._defaults = defaults or {}
+
+  @staticmethod
+  def get_mappings_from_transform(mappings):
+    if not isinstance(mappings, dict):
+      raise ValueError(
+          "RenamingProvider mappings must be dict of transform "
+          "mappings.")
+    for key, value in mappings.items():
+      if isinstance(value, str):
+        if value not in mappings.keys():
+          raise ValueError(
+              "RenamingProvider transform mappings must be dict or "
+              "specify transform that has mappings within same "
+              "provider.")
+        mappings[key] = mappings[value]
+    return mappings
 
   def available(self) -> bool:
     return self._underlying_provider.available()

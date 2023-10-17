@@ -485,7 +485,7 @@ def create_mapping_providers():
           'Explode': _Explode,
           'Filter-python': _PyJsFilter,
           'Filter-javascript': _PyJsFilter,
-          'MapToFields-python': _PyJsMapToFields,
+          'j-python': _PyJsMapToFields,
           'MapToFields-javascript': _PyJsMapToFields,
           'MapToFields-generic': _PyJsMapToFields,
       }),
