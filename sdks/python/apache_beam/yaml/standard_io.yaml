@@ -143,7 +143,7 @@
 - type: beamJar
   transforms:
     'WriteToCsv': 'beam:schematransform:org.apache.beam:csv_write:v1'
-    'WriteToJson': 'beam:schematransform:org.apache.beam:json_write:v1'
+#    'WriteToJson': 'beam:schematransform:org.apache.beam:json_write:v1'
   config:
     gradle_target: 'sdks:java:extensions:schemaio-expansion-service:shadowJar'
 
