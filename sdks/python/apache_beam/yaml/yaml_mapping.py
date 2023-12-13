@@ -439,6 +439,8 @@ def _PyJsFilter(
 
   try:
     input_schema = dict(named_fields_from_element_type(pcoll.element_type))
+    # input_schema = dicts_to_rows(
+    #   dict(named_fields_from_element_type(pcoll.element_type)))
   except (TypeError, ValueError) as exn:
     if is_expr(keep):
       raise ValueError("Can only use expressions on a schema'd input.") from exn
