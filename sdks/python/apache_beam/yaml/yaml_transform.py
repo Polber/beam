@@ -40,6 +40,8 @@ from apache_beam.yaml.yaml_mapping import normalize_mapping
 
 __all__ = ["YamlTransform"]
 
+from apache_beam.yaml.yaml_mapping import normalize_mapping
+
 _LOGGER = logging.getLogger(__name__)
 yaml_provider.fix_pycallable()
 

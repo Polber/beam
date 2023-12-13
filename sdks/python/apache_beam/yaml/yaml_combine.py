@@ -113,7 +113,13 @@ class PyJsYamlCombine(beam.PTransform):
         fn = python_callable.PythonCallableWithSource.load_from_source(
             fn_spec['type'])
         if 'config' in fn_spec:
-          fn = fn(**fn_spec['config'])
+          config = agg['fn'].get('config')
+          for arg_key, arg_val in config.items():
+            if isinstance(arg_val, dict):
+              for key, val in arg_val.items():
+                if key == 'callable':
+                  config[arg_key] = eval(val)
+          fn = fn(**config)
         return fn
       else:
         raise TypeError('Unknown CombineFn: {fn_spec}')
@@ -142,7 +148,6 @@ class PyJsYamlCombine(beam.PTransform):
 
       # TODO(yaml): See if this logic can be pushed into GroupBy itself.
       expr_type = extract_return_type(expr)
-      print('expr', expr, 'expr_type', expr_type)
       if isinstance(fn, beam.CombineFn):
         # TODO(yaml): Better inference on CombineFns whose outputs types are
         # functions of their input types
