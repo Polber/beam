@@ -55,7 +55,7 @@ def _pipeline_spec_from_args(known_args):
   return pipeline_yaml
 
 
-def run(argv=None):
+def run(argv=None, test=None):
   yaml_transform._LOGGER.setLevel('INFO')
   known_args, pipeline_args = _configure_parser(argv)
   pipeline_yaml = _pipeline_spec_from_args(known_args)
@@ -69,8 +69,10 @@ def run(argv=None):
               'options', {}))),
       display_data={'yaml': pipeline_yaml}) as p:
     print("Building pipeline...")
-    yaml_transform.expand_pipeline(p, pipeline_spec)
+    pipeline_output = yaml_transform.expand_pipeline(p, pipeline_spec)
     print("Running pipeline...")
+    if test:
+      test(pipeline_output)
 
 
 if __name__ == '__main__':

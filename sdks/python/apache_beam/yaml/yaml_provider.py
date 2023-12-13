@@ -550,13 +550,30 @@ def create_builtin_provider():
   def create(elements: Iterable[Any], reshuffle: Optional[bool] = True):
     """Creates a collection containing a specified set of elements.
 
-    YAML/JSON-style mappings will be interpreted as Beam rows. For example::
+    YAML/JSON-style mappings will be interpreted as Beam rows. For example,
+    using JSON:
 
         type: Create
-        elements:
-           - {first: 0, second: {str: "foo", values: [1, 2, 3]}}
+        config:
+          elements:
+            - {first: 0, second: {str: "foo", values: [1, 2, 3]}}
+            - {first: 1, second: {str: "bar", values: [4, 5, 6]}}
 
     will result in a schema of the form (int, Row(string, List[int])).
+
+    This can also be expressed as YAML:
+
+        type: Create
+        config:
+          elements:
+            - first: 0
+              second:
+                str: "foo"
+                 values: [1, 2, 3]
+            - first: 1
+              second:
+                str: "bar"
+                 values: [4, 5, 6]
 
     Args:
         elements: The set of elements that should belong to the PCollection.
