@@ -18,9 +18,6 @@
 
 # pytype: skip-file
 
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
@@ -52,20 +49,4 @@ pipeline:
       config:
         language: python
         keep: plant
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
-        kwargs:
-          element: plant
-"""
-
-
-def regex_matches_yaml(test=None):
-  run_yaml_example(pipeline_spec, test)
-
-
-if __name__ == '__main__':
-  regex_matches_yaml()
+    - type: LogForTesting

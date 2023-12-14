@@ -16,11 +16,6 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
@@ -28,32 +23,25 @@ pipeline:
       name: Gardening plants
       config:
         elements:
-          - '# 🍓Strawberry'
-          - '# 🥕Carrot'
-          - '# 🍆Eggplant'
-          - '# 🍅Tomato'
-          - '# 🥔Potato'
-    - type: MapToFields
-      name: Strip header
+          - 'icon': '🍓'
+            'name': 'Strawberry'
+            'duration': 'perennial'
+          - 'icon': '🥕'
+            'name': 'Carrot'
+            'duration': 'biennial'
+          - 'icon': '🍆'
+            'name': 'Eggplant'
+            'duration': 'perennial'
+          - 'icon': '🍅'
+            'name': 'Tomato'
+            'duration': 'annual'
+          - 'icon': '🥔'
+            'name': 'Potato'
+            'duration': 'perennial'
+    - type: Filter
+      name: Filter perennials
       config:
         language: python
-        fields:
-          element:
-            callable: "lambda row: row.element.strip('# \n')"
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
-        kwargs:
-          element: element
-"""
-
-
-def map_lambda_yaml(test=None):
-  run_yaml_example(pipeline_spec, test)
-
-
-if __name__ == '__main__':
-  map_lambda_yaml()
+        keep:
+          callable: "lambda plant: plant.duration == 'perennial'"
+    - type: LogForTesting
