@@ -16,11 +16,6 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
@@ -41,22 +36,13 @@ pipeline:
           - produce: '🍅'
             amount: 3
     - type: Combine
-      name: Sum values per key
+      name: Get min value per key
       config:
         language: python
         group_by: produce
         combine:
-          amount: sum
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
+          amount: min
+    - type: LogForTesting
 
 options:
   yaml_experimental_features: Combine
-"""
-
-if __name__ == '__main__':
-  run_yaml_example(pipeline_spec)

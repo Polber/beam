@@ -18,45 +18,23 @@
 
 # pytype: skip-file
 
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
     - type: Create
-      name: Create produce
+      name: Gardening plants
       config:
         elements:
-          - produce: '🥕'
-            amount: 3
-          - produce: '🥕'
-            amount: 2
-          - produce: '🍆'
-            amount: 1
-          - produce: '🍅'
-            amount: 4
-          - produce: '🍅'
-            amount: 5
-          - produce: '🍅'
-            amount: 3
-    - type: Combine
-      name: Get max value per key
+          - '# 🍓Strawberry'
+          - '# 🥕Carrot'
+          - '# 🍆Eggplant'
+          - '# 🍅Tomato'
+          - '# 🥔Potato'
+    - type: MapToFields
+      name: Strip header
       config:
         language: python
-        group_by: produce
-        combine:
-          amount: max
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
-
-options:
-  yaml_experimental_features: Combine
-"""
-
-if __name__ == '__main__':
-  run_yaml_example(pipeline_spec)
+        fields:
+          element:
+            callable: "lambda row: row.element.strip('# \n')"
+    - type: LogForTesting

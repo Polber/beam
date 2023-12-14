@@ -16,37 +16,41 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
     - type: Create
-      name: Gardening plants
+      name: Create produce names
       config:
         elements:
-          - produce: ['🍓Strawberry', '🥕Carrot', '🍆Eggplant', '🍅Tomato', '🥔Potato']
-    - type: Explode
-      name: Flatten lists
+          - season: 'spring'
+            produce: '🍓'
+          - season: 'spring'
+            produce: '🥕'
+          - season: 'summer'
+            produce: '🥕'
+          - season: 'fall'
+            produce: '🥕'
+          - season: 'spring'
+            produce: '🍆'
+          - season: 'winter'
+            produce: '🍆'
+          - season: 'spring'
+            produce: '🍅'
+          - season: 'summer'
+            produce: '🍅'
+          - season: 'fall'
+            produce: '🍅'
+          - season: 'summer'
+            produce: '🌽'
+    - type: Combine
+      name: Shortest names per key
       config:
-        fields: [produce]
+        language: python
+        group_by: season
+        combine:
+          produce: count
+    - type: LogForTesting
 
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
-        kwargs:
-          element: produce
-"""
-
-
-def flatmap_lambda_yaml(test=None):
-  run_yaml_example(pipeline_spec, test)
-
-
-if __name__ == '__main__':
-  flatmap_lambda_yaml()
+options:
+  yaml_experimental_features: Combine

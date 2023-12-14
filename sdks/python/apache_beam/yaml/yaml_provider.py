@@ -553,7 +553,8 @@ def create_builtin_provider():
     YAML/JSON-style mappings will be interpreted as Beam rows. For example::
 
         type: Create
-        elements:
+        config:
+          elements:
            - {first: 0, second: {str: "foo", values: [1, 2, 3]}}
 
     will result in a schema of the form (int, Row(string, List[int])).

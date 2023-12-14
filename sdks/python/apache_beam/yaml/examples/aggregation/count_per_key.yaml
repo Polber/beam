@@ -16,32 +16,33 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-# pylint:disable=line-too-long
+pipeline:
+  type: chain
+  transforms:
+    - type: Create
+      name: Create produce
+      config:
+        elements:
+          - produce: '🥕'
+            amount: 3
+          - produce: '🥕'
+            amount: 2
+          - produce: '🍆'
+            amount: 1
+          - produce: '🍅'
+            amount: 4
+          - produce: '🍅'
+            amount: 5
+          - produce: '🍅'
+            amount: 3
+    - type: Combine
+      name: Count elements per key
+      config:
+        language: python
+        group_by: produce
+        combine:
+          amount: sum
+    - type: LogForTesting
 
-import apache_beam as beam
-from apache_beam.utils import python_callable
-
-from apache_beam.yaml import main
-from apache_beam.yaml import cache_provider_artifacts
-
-
-class PrintTransform(beam.PTransform):
-  def __init__(self, element=None):
-    super().__init__()
-    self._element = element
-
-  def expand(self, p):
-    def get_map_print():
-      if self._element is not None:
-        return beam.Map(lambda row: print(eval(f"row.{self._element}")))
-      return beam.Map(lambda row: print(row._asdict()))
-
-    return p | get_map_print()
-
-
-def run_yaml_example(pipeline_spec, test=None):
-  cache_provider_artifacts.cache_provider_artifacts()
-  main.run(
-      argv=[f"--pipeline_spec={pipeline_spec}", "--save_main_session"],
-      test=test)
+options:
+  yaml_experimental_features: Combine

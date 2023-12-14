@@ -16,55 +16,46 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
     - type: Create
-      name: Create produce names
+      name: Create produce
       config:
         elements:
           - season: 'spring'
             produce: '🍓'
           - season: 'spring'
             produce: '🥕'
-          - season: 'summer'
-            produce: '🥕'
-          - season: 'fall'
-            produce: '🥕'
           - season: 'spring'
-            produce: '🍆'
-          - season: 'winter'
             produce: '🍆'
           - season: 'spring'
             produce: '🍅'
           - season: 'summer'
-            produce: '🍅'
-          - season: 'fall'
+            produce: '🥕'
+          - season: 'summer'
             produce: '🍅'
           - season: 'summer'
             produce: '🌽'
+          - season: 'fall'
+            produce: '🥕'
+          - season: 'fall'
+            produce: '🍅'
+          - season: 'winter'
+            produce: '🍆'
     - type: Combine
-      name: Shortest names per key
+      name: Group into batches
       config:
         language: python
         group_by: season
         combine:
-          produce: count
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
+          produce:
+            value: produce
+            fn:
+              type: 'apache_beam.transforms.combiners.TopCombineFn'
+              config:
+                n: 3
+    - type: LogForTesting
 
 options:
   yaml_experimental_features: Combine
-"""
-
-if __name__ == '__main__':
-  run_yaml_example(pipeline_spec)

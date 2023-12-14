@@ -16,11 +16,6 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
@@ -48,47 +43,16 @@ pipeline:
             fruit: 'banana'
             quantity: 3
             unit_price: 1.00
-    # Simulates global GroupBy by creating global key
-    - type: MapToFields
-      name: Add global key
-      config:
-        append: true
-        language: python
-        fields:
-          global_key: '0'
     - type: Combine
-      name: Get multiple aggregations per key
+      name: Sum values per key
       config:
         language: python
-        group_by: global_key
+        group_by: fruit
         combine:
-          min_price: 
-            value: unit_price
-            fn: min
-          mean_price: 
-            value: unit_price
-            fn: mean
-          max_price: 
-            value: unit_price
-            fn: max
-    # Removes unwanted global key
-    - type: MapToFields
-      name: Remove global key
-      config:
-        fields:
-          min_price: min_price
-          mean_price: mean_price
-          max_price: max_price
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
+          total_quantity: 
+            value: quantity
+            fn: sum
+    - type: LogForTesting
 
 options:
   yaml_experimental_features: Combine
-"""
-
-if __name__ == '__main__':
-  run_yaml_example(pipeline_spec)

@@ -16,11 +16,6 @@
 # limitations under the License.
 #
 
-# pytype: skip-file
-
-from apache_beam.yaml.examples.backend.run_yaml_example import run_yaml_example
-
-pipeline_spec = """
 pipeline:
   type: chain
   transforms:
@@ -51,23 +46,7 @@ pipeline:
         language: python
         fields:
           output: "'%s: %s' % (word, count)"
-
-    # Custom utility transform for printing output in console
-    - type: PyTransform
-      name: Print results
-      config:
-        constructor: apache_beam.yaml.examples.backend.run_yaml_example.PrintTransform
-        kwargs:
-          element: output
+    - type: LogForTesting
         
 options:
   yaml_experimental_features: Combine
-"""
-
-
-def wordcount_minimal_yaml(test=None):
-  run_yaml_example(pipeline_spec)
-
-
-if __name__ == '__main__':
-  wordcount_minimal_yaml()
