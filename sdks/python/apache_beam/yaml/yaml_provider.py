@@ -732,9 +732,10 @@ class PypiExpansionService:
     if not os.path.exists(venv):
       subprocess.run([base_python, '-m', 'venv', venv], check=True)
       venv_python = os.path.join(venv, 'bin', 'python')
+      venv_pip = os.path.join(venv, 'bin', 'pip')
       subprocess.run([venv_python, '-m', 'ensurepip'], check=True)
-      subprocess.run([venv_python, '-m', 'pip', 'install'] + packages,
-                     check=True)
+      subprocess.run([venv_pip, 'install'] + packages, check=True)
+      print()
       with open(venv + '-requirements.txt', 'w') as fout:
         fout.write('\n'.join(packages))
     return venv
@@ -748,9 +749,8 @@ class PypiExpansionService:
       subprocess.run(
           [clonable_python, '-m', 'clonevirtualenv', clonable_venv, venv],
           check=True)
-      venv_binary = os.path.join(venv, 'bin', 'python')
-      subprocess.run([venv_binary, '-m', 'pip', 'install'] + packages,
-                     check=True)
+      venv_pip = os.path.join(venv, 'bin', 'pip')
+      subprocess.run([venv_pip, 'install'] + packages, check=True)
       with open(venv + '-requirements.txt', 'w') as fout:
         fout.write('\n'.join(packages))
     return venv
@@ -758,8 +758,9 @@ class PypiExpansionService:
   @classmethod
   def _create_venv_to_clone(cls, base_python):
     return cls._create_venv_from_scratch(
-        base_python, [
-            'apache_beam[dataframe,gcp,test]==' + beam_version,
+        base_python,
+        [
+            'apache_beam[yaml,dataframe,gcp,test]==' + beam_version,
             'virtualenv-clone'
         ])
 
