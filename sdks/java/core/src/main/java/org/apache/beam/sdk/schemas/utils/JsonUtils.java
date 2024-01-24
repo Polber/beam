@@ -35,7 +35,11 @@ import org.everit.json.schema.NumberSchema;
 import org.everit.json.schema.ObjectSchema;
 import org.everit.json.schema.ReferenceSchema;
 import org.everit.json.schema.StringSchema;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
+
+import javax.annotation.Nullable;
 
 /**
  * Utils to convert JSON records to Beam {@link Row}.
@@ -95,6 +99,7 @@ public class JsonUtils {
       @Override
       public Row apply(byte[] input) {
         String jsonString = byteArrayToJsonString(input);
+        validateJsonSchema(jsonString, originalSchema);
         return RowJsonUtils.jsonToRow(objectMapper, jsonString);
       }
     };
@@ -105,6 +110,7 @@ public class JsonUtils {
     return new JsonToRowFn<String>(beamSchema) {
       @Override
       public Row apply(String jsonString) {
+        validateJsonSchema(jsonString, originalSchema);
         return RowJsonUtils.jsonToRow(objectMapper, jsonString);
       }
     };
@@ -321,10 +327,12 @@ public class JsonUtils {
   private abstract static class JsonToRowFn<T> extends SimpleFunction<T, Row> {
     final RowJson.RowJsonDeserializer deserializer;
     final ObjectMapper objectMapper;
+    final Schema originalSchema;
 
     private JsonToRowFn(Schema beamSchema) {
       deserializer = RowJson.RowJsonDeserializer.forSchema(beamSchema);
       objectMapper = RowJsonUtils.newObjectMapperWith(deserializer);
+      originalSchema = beamSchema;
     }
   }
 
@@ -336,6 +344,41 @@ public class JsonUtils {
       serializer = RowJson.RowJsonSerializer.forSchema(beamSchema);
       objectMapper = RowJsonUtils.newObjectMapperWith(serializer);
     }
+  }
+
+  private static void validateJsonSchemaRec(JSONObject jsonObject, Schema originalSchema) {
+    for (String key : jsonObject.keySet()) {
+      if (originalSchema == null || !originalSchema.hasField(key)) {
+        throw new IllegalArgumentException("Schemas do not match.");
+      }
+      if (jsonObject.get(key) instanceof JSONObject) {
+        Schema rowSchema = originalSchema.getField(key).getType().getRowSchema();
+        if (rowSchema != null) {
+          validateJsonSchemaRec(jsonObject.getJSONObject(key), rowSchema);
+        } else {
+          throw new IllegalArgumentException("Schemas do not match.");
+        }
+      } else if (jsonObject.get(key) instanceof JSONArray) {
+        JSONArray jsonArray = jsonObject.getJSONArray(key);
+        for (int i = 0; i < jsonArray.length(); i++) {
+          FieldType arrType = originalSchema.getField(key).getType().getCollectionElementType();
+          if (jsonObject.get(key) instanceof JSONObject) {
+            if (arrType != null) {
+              Schema arrSchema = arrType.getRowSchema();
+              if (arrSchema != null) {
+                validateJsonSchemaRec(jsonObject.getJSONObject(key), arrSchema);
+              }
+            } else {
+              throw new IllegalArgumentException("Schemas do not match.");
+            }
+          }
+        }
+      }
+    }
+  }
+
+  static void validateJsonSchema(String jsonString, Schema originalSchema) {
+    validateJsonSchemaRec(new JSONObject(jsonString), originalSchema);
   }
 
   static byte[] jsonStringToByteArray(String jsonString) {

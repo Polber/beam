@@ -33,6 +33,7 @@ import yaml
 from yaml.loader import SafeLoader
 
 import apache_beam as beam
+from apache_beam.options import pipeline_options
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.transforms.fully_qualified_named_transform import FullyQualifiedNamedTransform
 from apache_beam.yaml import yaml_provider
@@ -40,6 +41,10 @@ from apache_beam.yaml.yaml_combine import normalize_combine
 from apache_beam.yaml.yaml_mapping import normalize_mapping
 
 __all__ = ["YamlTransform"]
+
+from apache_beam.yaml.yaml_template import YamlTemplate
+
+from apache_beam.yaml.yaml_template import preprocess_template
 
 _LOGGER = logging.getLogger(__name__)
 yaml_provider.fix_pycallable()
@@ -895,7 +900,7 @@ def ensure_config(spec):
   return spec
 
 
-def preprocess(spec, verbose=False, known_transforms=None):
+def preprocess(spec, verbose=False, known_transforms=None, template=None):
   if verbose:
     pprint.pprint(spec)
 
@@ -917,7 +922,7 @@ def preprocess(spec, verbose=False, known_transforms=None):
             f'for type {spec["type"]} for {identify_object(spec)}')
     return spec
 
-  def preprocess_langauges(spec):
+  def preprocess_languages(spec):
     if spec['type'] in ('Filter', 'MapToFields', 'Combine', 'AssignTimestamps'):
       language = spec.get('config', {}).get('language', 'generic')
       new_type = spec['type'] + '-' + language
@@ -931,11 +936,12 @@ def preprocess(spec, verbose=False, known_transforms=None):
     else:
       return spec
 
+
   for phase in [
       ensure_transforms_have_types,
       normalize_mapping,
       normalize_combine,
-      preprocess_langauges,
+      preprocess_languages,
       ensure_transforms_have_providers,
       preprocess_source_sink,
       preprocess_chain,
@@ -947,6 +953,7 @@ def preprocess(spec, verbose=False, known_transforms=None):
       # TODO(robertwb): Consider enabling this by default, or as an option.
       # lift_config,
       ensure_config,
+      preprocess_template(template),
   ]:
     spec = apply(phase, spec)
     if verbose:
@@ -956,7 +963,7 @@ def preprocess(spec, verbose=False, known_transforms=None):
 
 
 class YamlTransform(beam.PTransform):
-  def __init__(self, spec, providers={}):  # pylint: disable=dangerous-default-value
+  def __init__(self, spec, providers={}, template=None):  # pylint: disable=dangerous-default-value
     if isinstance(spec, str):
       spec = yaml.load(spec, Loader=SafeLineLoader)
     if isinstance(providers, dict):
@@ -967,7 +974,9 @@ class YamlTransform(beam.PTransform):
     # TODO(BEAM-26941): Validate as a transform.
     self._providers = yaml_provider.merge_providers(
         providers, yaml_provider.standard_providers())
-    self._spec = preprocess(spec, known_transforms=self._providers.keys())
+    self._spec = preprocess(
+        spec, known_transforms=self._providers.keys(), template=template)
+    print(self._spec)
     self._was_chain = spec['type'] == 'chain'
 
   def expand(self, pcolls):
@@ -1015,7 +1024,6 @@ class YamlTransform(beam.PTransform):
     else:
       return result
 
-
 def expand_pipeline(
     pipeline,
     pipeline_spec,
@@ -1027,6 +1035,9 @@ def expand_pipeline(
   # this could certainly be handy as a first pass when Beam is not available.
   if validate_schema and validate_schema != 'none':
     validate_against_schema(pipeline_spec, validate_schema)
+  template = None
+  if 'template' in pipeline_spec:
+    template = YamlTemplate(pipeline_spec['template'], pipeline._options)
   # Calling expand directly to avoid outer layer of nesting.
   return YamlTransform(
       pipeline_as_composite(pipeline_spec['pipeline']),
@@ -1036,4 +1047,5 @@ def expand_pipeline(
               key: yaml_provider.as_provider_list(key, value)
               for (key, value) in (providers or {}).items()
           }
-      }).expand(beam.pvalue.PBegin(pipeline))
+      },
+      template).expand(beam.pvalue.PBegin(pipeline))

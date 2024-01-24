@@ -42,6 +42,8 @@ from apache_beam.transforms.window import TimestampedValue
 from apache_beam.typehints import row_type
 from apache_beam.typehints import schemas
 from apache_beam.typehints import trivial_inference
+from apache_beam.typehints import typehints
+from apache_beam.typehints.row_type import RowTypeConstraint
 from apache_beam.typehints.schemas import named_fields_from_element_type
 from apache_beam.utils import python_callable
 from apache_beam.yaml import json_utils
@@ -319,10 +321,13 @@ def exception_handling_args(error_handling_spec):
     return None
 
 
-def _map_errors_to_standard_format():
+def _map_errors_to_standard_format(input_type):
   # TODO(https://github.com/apache/beam/issues/24755): Switch to MapTuple.
+  def _inner(x):
+    return beam.Row(element=x[0], msg=str(x[1][1]), stack=str(x[1][2]))
+
   return beam.Map(
-      lambda x: beam.Row(element=x[0], msg=str(x[1][1]), stack=str(x[1][2])))
+      lambda x: _inner(x)).with_output_types(RowTypeConstraint.from_fields([("element", input_type), ("msg", str), ("stack", str)]))
 
 
 def maybe_with_exception_handling(inner_expand):
@@ -330,7 +335,7 @@ def maybe_with_exception_handling(inner_expand):
     wrapped_pcoll = beam.core._MaybePValueWithErrors(
         pcoll, self._exception_handling_args)
     return inner_expand(self, wrapped_pcoll).as_result(
-        _map_errors_to_standard_format())
+        _map_errors_to_standard_format(pcoll.element_type))
 
   return expand
 
@@ -340,8 +345,9 @@ def maybe_with_exception_handling_transform_fn(transform_fn):
   def expand(pcoll, error_handling=None, **kwargs):
     wrapped_pcoll = beam.core._MaybePValueWithErrors(
         pcoll, exception_handling_args(error_handling))
-    return transform_fn(wrapped_pcoll,
-                        **kwargs).as_result(_map_errors_to_standard_format())
+    t = transform_fn(wrapped_pcoll,
+                        **kwargs).as_result(_map_errors_to_standard_format(pcoll.element_type))
+    return t
 
   original_signature = inspect.signature(transform_fn)
   new_parameters = list(original_signature.parameters.values())
@@ -517,11 +523,21 @@ def _PyJsMapToFields(pcoll, language='generic', **mapping_args):
 
   original_fields = list(input_schema.keys())
 
-  return pcoll | beam.Select(
-      **{
-          name: _as_callable(original_fields, expr, name, language)
-          for (name, expr) in fields.items()
-      })
+  class _SchemaPreservingSelect(beam.Select):
+    def __init__(self, original_schema, *args, **kwargs):
+      super().__init__(*args, **kwargs)
+      self.original_schema = original_schema
+
+    def infer_output_type(self, input_type):
+      types = super().infer_output_type(input_type)
+      return row_type.RowTypeConstraint.from_fields([(typ[0], self.original_schema[typ[0]]) if typ[0] in self.original_schema.keys() else typ for typ in types._fields])
+
+  parsed_fields = {
+      name: _as_callable(original_fields, expr, name, language)
+      for (name, expr) in fields.items()
+  }
+
+  return pcoll | "Select" >> _SchemaPreservingSelect({name: typ for (name, typ) in input_schema.items() if parsed_fields.get(name, None) == name}, **parsed_fields)
 
 
 @beam.ptransform.ptransform_fn

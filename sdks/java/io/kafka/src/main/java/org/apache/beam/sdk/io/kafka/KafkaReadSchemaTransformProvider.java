@@ -98,7 +98,7 @@ public class KafkaReadSchemaTransformProvider
     "nullness" // TODO(https://github.com/apache/beam/issues/20497)
   })
   @Override
-  protected SchemaTransform from(KafkaReadSchemaTransformConfiguration configuration) {
+  public SchemaTransform from(KafkaReadSchemaTransformConfiguration configuration) {
     final String inputSchema = configuration.getSchema();
     final int groupId = configuration.hashCode() % Integer.MAX_VALUE;
     final String autoOffsetReset =

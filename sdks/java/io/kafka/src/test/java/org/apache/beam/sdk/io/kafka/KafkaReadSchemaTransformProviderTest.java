@@ -17,6 +17,7 @@
  */
 package org.apache.beam.sdk.io.kafka;
 
+import static org.apache.beam.sdk.io.kafka.KafkaReadSchemaTransformProvider.OUTPUT_TAG;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
@@ -27,10 +28,19 @@ import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.schemas.transforms.SchemaTransform;
 import org.apache.beam.sdk.schemas.transforms.SchemaTransformProvider;
+import org.apache.beam.sdk.testing.TestPipeline;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.values.PCollectionRowTuple;
+import org.apache.beam.sdk.values.Row;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Lists;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Sets;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.io.ByteStreams;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -61,6 +71,25 @@ public class KafkaReadSchemaTransformProviderTest {
           + "\n"
           + "  Address address = 4;\n"
           + "}";
+
+  @Rule
+  public TestPipeline writePipeline = TestPipeline.create();
+
+  @Test
+  public void testKafka() {
+    SchemaTransform readFromKafka = new KafkaReadSchemaTransformProvider()
+        .from(KafkaReadSchemaTransformConfiguration.builder()
+            .setFormat("JSON")
+            .setSchema("{\"type\": \"object\", \"properties\": {\"name\": {\"type\": \"string\"}, \"id\": {\"type\": \"integer\"}, \"arr\": {\"type\": \"array\", \"items\": {\"type\": \"object\", \"properties\": {\"upper\": {\"type\": \"number\"}, \"lower\": {\"type\": \"number\"}}}}, \"row\": {\"type\": \"object\", \"properties\": {\"first\": {\"type\": \"string\"}, \"last\": {\"type\": \"string\"}}}}} \n")
+            .setBootstrapServers("localhost:61013")
+            .setTopic("testkafkatobigquery-20240210-003821-526644")
+            .setAutoOffsetResetConfig("earliest")
+            .build());
+
+//    TestPipeline pipeline = TestPipeline.create();
+    PCollectionRowTuple.empty(writePipeline).apply(readFromKafka);
+    writePipeline.run().waitUntilFinish();
+  }
 
   @Test
   public void testValidConfigurations() {

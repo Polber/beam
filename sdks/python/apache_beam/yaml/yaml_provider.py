@@ -803,14 +803,15 @@ class YamlProviders:
 
   @staticmethod
   def create_builtin_provider():
-    return InlineProvider({
-        'Create': YamlProviders.create,
-        'LogForTesting': YamlProviders.log_for_testing,
-        'PyTransform': YamlProviders.fully_qualified_named_transform,
-        'Flatten': YamlProviders.Flatten,
-        'WindowInto': YamlProviders.WindowInto,
-    },
-                          no_input_transforms=('Create', ))
+    return InlineProvider(
+        {
+            'Create': YamlProviders.create,
+            'LogForTesting': YamlProviders.log_for_testing,
+            'PyTransform': YamlProviders.fully_qualified_named_transform,
+            'Flatten': YamlProviders.Flatten,
+            'WindowInto': YamlProviders.WindowInto,
+        },
+        no_input_transforms=('Create', ))
 
 
 class TranslatingProvider(Provider):
