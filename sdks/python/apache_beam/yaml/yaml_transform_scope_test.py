@@ -25,8 +25,8 @@ import apache_beam as beam
 from apache_beam.yaml import yaml_provider
 from apache_beam.yaml import yaml_transform
 from apache_beam.yaml.yaml_transform import LightweightScope
-from apache_beam.yaml.yaml_transform import SafeLineLoader
 from apache_beam.yaml.yaml_transform import Scope
+from apache_beam.yaml.yaml_utils import SafeLineLoader
 
 
 class ScopeTest(unittest.TestCase):

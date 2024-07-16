@@ -1,0 +1,46 @@
+pipeline:
+  - type: RunInference
+    config:
+      model_handler:
+          type: Huggingface
+          config:
+            task: translation_en_to_fr
+            model: google-t5/t5-small
+            preprocess_fn: |
+              def preprocess_fn(_element):
+                ...
+            inference_fn: |
+              def inference_fn(batch, pipeline, inference_args):
+                ...
+            postprocess_fn: |
+              def postprocess_fn(result):
+                ...
+            load_model_args:
+              framework: pt
+              revision: main
+              device: gpu
+              min_batch_size: 1
+              max_batch_size: 2
+              max_batch_duration: 60s
+              large_model: false
+              model_copies: 1
+              env_vars:
+                SOME_ENV_VAR: val
+      using_key: key
+      element: element
+      inference_args:
+        arg1: val1
+        arg2: val2
+transform_providers:
+  - ...
+
+# Would probably require callable syntax
+model_handler_providers:
+  - type: python
+    config:
+      packages:
+        - 'some_pypi_package>=version'
+      model_handlers:
+        SomeName: 'pkg.module.MyModelHandler'
+        SomeOtherName: 'pkg.module.MyOtherModelHandler'
+

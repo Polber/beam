@@ -22,7 +22,7 @@ import logging
 import os
 import pprint
 import re
-import uuid
+from json import JSONDecodeError
 from typing import Any
 from typing import Iterable
 from typing import List
@@ -31,7 +31,6 @@ from typing import Set
 
 import jinja2
 import yaml
-from yaml.loader import SafeLoader
 
 import apache_beam as beam
 from apache_beam.io.filesystems import FileSystems
@@ -43,6 +42,10 @@ from apache_beam.yaml.yaml_mapping import normalize_mapping
 from apache_beam.yaml.yaml_mapping import validate_generic_expressions
 
 __all__ = ["YamlTransform"]
+
+from apache_beam.yaml.yaml_ml import normalize_ml
+
+from apache_beam.yaml.yaml_utils import SafeLineLoader
 
 _LOGGER = logging.getLogger(__name__)
 yaml_provider.fix_pycallable()
@@ -127,59 +130,6 @@ def empty_if_explicitly_empty(io):
     return {}
   else:
     return io
-
-
-class SafeLineLoader(SafeLoader):
-  """A yaml loader that attaches line information to mappings and strings."""
-  class TaggedString(str):
-    """A string class to which we can attach metadata.
-
-    This is primarily used to trace a string's origin back to its place in a
-    yaml file.
-    """
-    def __reduce__(self):
-      # Pickle as an ordinary string.
-      return str, (str(self), )
-
-  def construct_scalar(self, node):
-    value = super().construct_scalar(node)
-    if isinstance(value, str):
-      value = SafeLineLoader.TaggedString(value)
-      value._line_ = node.start_mark.line + 1
-    return value
-
-  def construct_mapping(self, node, deep=False):
-    mapping = super().construct_mapping(node, deep=deep)
-    mapping['__line__'] = node.start_mark.line + 1
-    mapping['__uuid__'] = self.create_uuid()
-    return mapping
-
-  @classmethod
-  def create_uuid(cls):
-    return str(uuid.uuid4())
-
-  @classmethod
-  def strip_metadata(cls, spec, tagged_str=True):
-    if isinstance(spec, Mapping):
-      return {
-          cls.strip_metadata(key, tagged_str):
-          cls.strip_metadata(value, tagged_str)
-          for (key, value) in spec.items()
-          if key not in ('__line__', '__uuid__')
-      }
-    elif isinstance(spec, Iterable) and not isinstance(spec, (str, bytes)):
-      return [cls.strip_metadata(value, tagged_str) for value in spec]
-    elif isinstance(spec, SafeLineLoader.TaggedString) and tagged_str:
-      return str(spec)
-    else:
-      return spec
-
-  @staticmethod
-  def get_line(obj):
-    if isinstance(obj, dict):
-      return obj.get('__line__', 'unknown')
-    else:
-      return getattr(obj, '_line_', 'unknown')
 
 
 class LightweightScope(object):
@@ -926,12 +876,14 @@ def preprocess(spec, verbose=False, known_transforms=None):
           spec, transforms=[apply(phase, t) for t in spec['transforms']])
     return spec
 
+  known_transform_keys = None
   if known_transforms:
-    known_transforms = set(known_transforms).union(['chain', 'composite'])
+    known_transform_keys = set(known_transforms.keys()).union(
+        ['chain', 'composite'])
 
   def ensure_transforms_have_providers(spec):
-    if known_transforms:
-      if spec['type'] not in known_transforms:
+    if known_transform_keys:
+      if spec['type'] not in known_transform_keys:
         raise ValueError(
             'Unknown type or missing provider '
             f'for type {spec["type"]} for {identify_object(spec)}')
@@ -945,7 +897,7 @@ def preprocess(spec, verbose=False, known_transforms=None):
                         'Partition'):
       language = spec.get('config', {}).get('language', 'generic')
       new_type = spec['type'] + '-' + language
-      if known_transforms and new_type not in known_transforms:
+      if known_transform_keys and new_type not in known_transform_keys:
         if language == 'generic':
           raise ValueError(f'Missing language for {identify_object(spec)}')
         else:
@@ -959,6 +911,7 @@ def preprocess(spec, verbose=False, known_transforms=None):
       ensure_transforms_have_types,
       normalize_mapping,
       normalize_combine,
+      normalize_ml,
       preprocess_languages,
       ensure_transforms_have_providers,
       preprocess_source_sink,
@@ -998,7 +951,10 @@ def expand_jinja(
 class YamlTransform(beam.PTransform):
   def __init__(self, spec, providers={}):  # pylint: disable=dangerous-default-value
     if isinstance(spec, str):
-      spec = yaml.load(spec, Loader=SafeLineLoader)
+      try:
+        spec = json.loads(spec)
+      except JSONDecodeError:
+        spec = yaml.load(spec, Loader=SafeLineLoader)
     if isinstance(providers, dict):
       providers = {
           key: yaml_provider.as_provider_list(key, value)
@@ -1007,7 +963,7 @@ class YamlTransform(beam.PTransform):
     # TODO(BEAM-26941): Validate as a transform.
     self._providers = yaml_provider.merge_providers(
         providers, yaml_provider.standard_providers())
-    self._spec = preprocess(spec, known_transforms=self._providers.keys())
+    self._spec = preprocess(spec, known_transforms=self._providers)
     self._was_chain = spec['type'] == 'chain'
 
   def expand(self, pcolls):
@@ -1067,7 +1023,15 @@ def expand_pipeline(
   # this could certainly be handy as a first pass when Beam is not available.
   if validate_schema and validate_schema != 'none':
     validate_against_schema(pipeline_spec, validate_schema)
+
   # Calling expand directly to avoid outer layer of nesting.
+  # return pipeline | external.ExternalTransform(
+  #   "beam:transforms:python:fully_qualified_named",
+  #   external.ImplicitSchemaPayloadBuilder({
+  #     'constructor': 'apache_beam.yaml.yaml_transform.YamlTransform',
+  #     'kwargs': {'spec': json.dumps(pipeline_as_composite(pipeline_spec['pipeline']))},
+  #   }).payload(),
+  #   PypiExpansionService(['apache_beam']))
   return YamlTransform(
       pipeline_as_composite(pipeline_spec['pipeline']),
       yaml_provider.merge_providers(

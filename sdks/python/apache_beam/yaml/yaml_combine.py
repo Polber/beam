@@ -31,6 +31,7 @@ from apache_beam.typehints.schemas import named_fields_from_element_type
 from apache_beam.utils import python_callable
 from apache_beam.yaml import yaml_mapping
 from apache_beam.yaml import yaml_provider
+from apache_beam.yaml.yaml_utils import SafeLineLoader
 
 BUILTIN_COMBINE_FNS = {
     'sum': sum,
@@ -61,7 +62,6 @@ def normalize_combine(spec):
         fn:
           type: fn_type
   """
-  from apache_beam.yaml.yaml_transform import SafeLineLoader
   if spec['type'] == 'Combine':
     config = spec.get('config')
     if isinstance(config.get('group_by'), str):

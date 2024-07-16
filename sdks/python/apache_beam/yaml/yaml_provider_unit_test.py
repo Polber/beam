@@ -27,8 +27,8 @@ from apache_beam.testing.util import assert_that
 from apache_beam.testing.util import equal_to
 from apache_beam.yaml import yaml_provider
 from apache_beam.yaml.yaml_provider import YamlProviders
-from apache_beam.yaml.yaml_transform import SafeLineLoader
 from apache_beam.yaml.yaml_transform import YamlTransform
+from apache_beam.yaml.yaml_utils import SafeLineLoader
 
 
 class WindowIntoTest(unittest.TestCase):

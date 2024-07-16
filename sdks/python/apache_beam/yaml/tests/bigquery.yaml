@@ -38,7 +38,7 @@ pipelines:
               - {label: "389a", rank: 2}
         - type: WriteToBigQuery
           config:
-            table: "{BQ_TABLE}"
+            table: "{BQ_TABLE[0]}:{BQ_TABLE[1]}.{BQ_TABLE[2]}"
     options:
       project: "apache-beam-testing"
       temp_location: "{TEMP_DIR}"
@@ -48,7 +48,7 @@ pipelines:
       transforms:
         - type: ReadFromBigQuery
           config:
-            table: "{BQ_TABLE}"
+            table: "{BQ_TABLE[0]}:{BQ_TABLE[1]}.{BQ_TABLE[2]}"
         - type: AssertEqual
           config:
             elements:
@@ -64,7 +64,7 @@ pipelines:
       transforms:
         - type: ReadFromBigQuery
           config:
-            table: "{BQ_TABLE}"
+            table: "{BQ_TABLE[0]}:{BQ_TABLE[1]}.{BQ_TABLE[2]}"
             fields: ["label"]
             row_restriction: "rank > 0"
         - type: AssertEqual

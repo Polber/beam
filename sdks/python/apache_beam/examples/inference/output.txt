@@ -1,0 +1,3 @@
+What does Apache Beam do?;enables batch and streaming data processing
+What is the capital of France?;Paris
+Where was beam summit?;NYC

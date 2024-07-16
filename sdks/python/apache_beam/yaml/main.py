@@ -26,6 +26,7 @@ from apache_beam.io.filesystems import FileSystems
 from apache_beam.typehints.schemas import LogicalType
 from apache_beam.typehints.schemas import MillisInstant
 from apache_beam.yaml import yaml_transform
+from apache_beam.yaml.yaml_utils import SafeLineLoader
 
 
 def _preparse_jinja_flags(argv):
@@ -126,15 +127,14 @@ def run(argv=None):
   pipeline_template = _pipeline_spec_from_args(known_args)
   pipeline_yaml = yaml_transform.expand_jinja(
       pipeline_template, known_args.jinja_variables or {})
-  pipeline_spec = yaml.load(pipeline_yaml, Loader=yaml_transform.SafeLineLoader)
+  pipeline_spec = yaml.load(pipeline_yaml, Loader=SafeLineLoader)
 
   with _fix_xlang_instant_coding():
     with beam.Pipeline(  # linebreak for better yapf formatting
         options=beam.options.pipeline_options.PipelineOptions(
             pipeline_args,
             pickle_library='cloudpickle',
-            **yaml_transform.SafeLineLoader.strip_metadata(pipeline_spec.get(
-                'options', {}))),
+            **SafeLineLoader.strip_metadata(pipeline_spec.get('options', {}))),
         display_data={'yaml': pipeline_yaml,
                       'yaml_jinja_template': pipeline_template,
                       'yaml_jinja_variables': json.dumps(
