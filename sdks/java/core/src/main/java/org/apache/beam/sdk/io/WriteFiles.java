@@ -1193,11 +1193,15 @@ public abstract class WriteFiles<UserT, DestinationT, OutputT>
     private transient List<KV<Instant, FileResult<DestinationT>>> deferredOutput =
         new ArrayList<>();
 
+    private final Object closeFuturesLock = new Object();
+
     // Ensure that transient fields are initialized.
     private void readObject(java.io.ObjectInputStream in)
         throws IOException, ClassNotFoundException {
       in.defaultReadObject();
-      closeFutures = new ArrayList<>();
+      synchronized (closeFuturesLock) {
+        closeFutures = new ArrayList<>();
+      }
       deferredOutput = new ArrayList<>();
     }
 
@@ -1243,8 +1247,11 @@ public abstract class WriteFiles<UserT, DestinationT, OutputT>
       // before we return from this processElement call. This allows us to perform the writes/closes
       // in parallel with the prior elements close calls and bounds the amount of data buffered to
       // limit the number of OOMs.
-      CompletionStage<List<Void>> pastCloseFutures = MoreFutures.allAsList(closeFutures);
-      closeFutures.clear();
+      CompletionStage<List<Void>> pastCloseFutures;
+      synchronized (closeFuturesLock) {
+        pastCloseFutures = MoreFutures.allAsList(closeFutures);
+        closeFutures.clear();
+      }
 
       // Close all writers in the background
       for (Map.Entry<DestinationT, Writer<DestinationT, OutputT>> entry : writers.entrySet()) {
@@ -1269,31 +1276,39 @@ public abstract class WriteFiles<UserT, DestinationT, OutputT>
     private void closeWriterInBackground(Writer<DestinationT, OutputT> writer) {
       // Close in parallel so flushing of buffered writes to files for many windows happens in
       // parallel.
-      closeFutures.add(
-          MoreFutures.runAsync(
-              () -> {
-                try {
-                  // Close the writer; if this throws let the error propagate.
-                  writer.close();
-                } catch (Exception e) {
-                  // If anything goes wrong, make sure to delete the temporary file.
-                  writer.cleanup();
-                  throw e;
-                }
-              }));
+      synchronized (closeFuturesLock) {
+        closeFutures.add(
+            MoreFutures.runAsync(
+                () -> {
+                  try {
+                    // Close the writer; if this throws let the error propagate.
+                    writer.close();
+                  } catch (Exception e) {
+                    // If anything goes wrong, make sure to delete the temporary file.
+                    writer.cleanup();
+                    throw e;
+                  }
+                }));
+      }
     }
 
     @FinishBundle
     public void finishBundle(FinishBundleContext c) throws Exception {
       try {
-        MoreFutures.get(MoreFutures.allAsList(closeFutures));
+        CompletionStage<List<Void>> bundleCloseFutures;
+        synchronized (closeFuturesLock) {
+          bundleCloseFutures = MoreFutures.allAsList(closeFutures);
+        }
+        MoreFutures.get(bundleCloseFutures);
         // If all writers were closed without exception, output the results to the next stage.
         for (KV<Instant, FileResult<DestinationT>> result : deferredOutput) {
           c.output(result.getValue(), result.getKey(), result.getValue().getWindow());
         }
       } finally {
         deferredOutput.clear();
-        closeFutures.clear();
+        synchronized (closeFuturesLock) {
+          closeFutures.clear();
+        }
       }
     }
   }
