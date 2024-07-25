@@ -85,6 +85,7 @@ class BigQueryAvroUtils {
           .put("BOOL", Type.BOOLEAN)
           .put("TIMESTAMP", Type.LONG)
           .put("RECORD", Type.RECORD)
+          .put("RANGE", Type.RECORD)
           .put("STRUCT", Type.RECORD)
           .put("DATE", Type.STRING)
           .put("DATE", Type.INT)
@@ -361,6 +362,7 @@ class BigQueryAvroUtils {
         return formatTimestamp((Long) v);
       case "RECORD":
       case "STRUCT":
+      case "RANGE":
         verify(v instanceof GenericRecord, "Expected GenericRecord, got %s", v.getClass());
         return convertGenericRecordToTableRow((GenericRecord) v, fieldSchema.getFields());
       case "BYTES":

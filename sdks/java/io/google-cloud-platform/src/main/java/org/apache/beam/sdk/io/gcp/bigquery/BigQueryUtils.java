@@ -315,9 +315,11 @@ public class BigQueryUtils {
    * @return Corresponding Beam {@link FieldType}
    */
   private static FieldType fromTableFieldSchemaType(
-      String typeName, List<TableFieldSchema> nestedFields, SchemaConversionOptions options) {
+      String typeName, List<TableFieldSchema> nestedFields, TableFieldSchema.RangeElementType rangeElementType, SchemaConversionOptions options) {
     switch (typeName) {
       case "STRING":
+      case "GEOGRAPHY":
+      case "JSON":
         return FieldType.STRING;
       case "BYTES":
         return FieldType.BYTES;
@@ -331,6 +333,7 @@ public class BigQueryUtils {
       case "BOOLEAN":
         return FieldType.BOOLEAN;
       case "NUMERIC":
+      case "BIGNUMERIC":
         return FieldType.DECIMAL;
       case "TIMESTAMP":
         return FieldType.DATETIME;
@@ -340,6 +343,8 @@ public class BigQueryUtils {
         return FieldType.logicalType(SqlTypes.DATE);
       case "DATETIME":
         return FieldType.logicalType(SqlTypes.DATETIME);
+      case "RANGE":
+        return FieldType.map(FieldType.STRING, fromTableFieldSchemaType(rangeElementType.getType(), null, null, options));
       case "STRUCT":
       case "RECORD":
         if (options.getInferMaps() && nestedFields.size() == 2) {
@@ -348,8 +353,8 @@ public class BigQueryUtils {
           if (BIGQUERY_MAP_KEY_FIELD_NAME.equals(key.getName())
               && BIGQUERY_MAP_VALUE_FIELD_NAME.equals(value.getName())) {
             return FieldType.map(
-                fromTableFieldSchemaType(key.getType(), key.getFields(), options),
-                fromTableFieldSchemaType(value.getType(), value.getFields(), options));
+                fromTableFieldSchemaType(key.getType(), key.getFields(), key.getRangeElementType(), options),
+                fromTableFieldSchemaType(value.getType(), value.getFields(), value.getRangeElementType(), options));
           }
         }
 
@@ -367,7 +372,7 @@ public class BigQueryUtils {
     for (TableFieldSchema tableFieldSchema : tableFieldSchemas) {
       FieldType fieldType =
           fromTableFieldSchemaType(
-              tableFieldSchema.getType(), tableFieldSchema.getFields(), options);
+              tableFieldSchema.getType(), tableFieldSchema.getFields(), tableFieldSchema.getRangeElementType(), options);
 
       Optional<Mode> fieldMode = Optional.ofNullable(tableFieldSchema.getMode()).map(Mode::valueOf);
       if (fieldMode.filter(m -> m == Mode.REPEATED).isPresent()
