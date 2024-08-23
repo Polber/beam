@@ -40,9 +40,17 @@ from apache_beam.yaml.readme_test import replace_recursive
 
 
 def check_output(expected: List[str]):
+  def _format_output_recursive(row: Dict):
+    for item in row:
+      if 'BeamSchema_' in str(type(row[item])):
+        row[item] = _format_output_recursive(row[item]._asdict())
+    if {'msg', 'stack'}.issubset(set(row.keys())):
+      row.pop('stack')
+    return beam.Row(**row)
+
   def _check_inner(actual: PCollection[str]):
     formatted_actual = actual | beam.Map(
-        lambda row: str(beam.Row(**row._asdict())))
+        lambda row: str(_format_output_recursive(row._asdict())))
     assert_matches_stdout(formatted_actual, expected)
 
   return _check_inner
@@ -84,10 +92,14 @@ def create_test_method(
           pickle_library='cloudpickle',
           **yaml_transform.SafeLineLoader.strip_metadata(pipeline_spec.get(
               'options', {})))) as p:
-        actual = yaml_transform.expand_pipeline(p, pipeline_spec)
-        if not actual:
-          actual = p.transforms_stack[0].parts[-1].outputs[None]
-        check_output(expected)(actual)
+        yaml_transform.expand_pipeline(p, pipeline_spec)
+        outputs = [
+            transform.outputs[None] for transform in p.transforms_stack[0].parts
+            if 'LogForTesting' in bytes.decode(
+                transform.annotations['yaml_type'])
+        ]
+        output = tuple(outputs) | beam.Flatten()
+        check_output(expected)(output)
 
   return test_yaml_example
 
