@@ -1033,11 +1033,14 @@ class PypiExpansionService:
                                 packages).encode('utf-8')).hexdigest())
 
   @classmethod
-  def _create_venv_from_scratch(cls, base_python, packages):
+  def _create_venv_from_scratch(cls, base_python, packages, cache_dir=None):
     venv = cls._path(base_python, packages)
     if not os.path.exists(venv):
       try:
-        subprocess.run([base_python, '-m', 'venv', venv], check=True)
+        if cache_dir:
+          subprocess.run(['ln', '-s', cache_dir, venv], check=True)
+        else:
+          subprocess.run([base_python, '-m', 'venv', venv], check=True)
         venv_python = os.path.join(venv, 'bin', 'python')
         venv_pip = os.path.join(venv, 'bin', 'pip')
         subprocess.run([venv_python, '-m', 'ensurepip'], check=True)
@@ -1071,7 +1074,7 @@ class PypiExpansionService:
     return venv
 
   @classmethod
-  def _create_venv_to_clone(cls, base_python):
+  def _create_venv_to_clone(cls, base_python, cache_dir=None):
     if '.dev' in beam_version:
       base_venv = os.path.dirname(os.path.dirname(base_python))
       print('Cloning dev environment from', base_venv)
@@ -1080,7 +1083,8 @@ class PypiExpansionService:
         [
             'apache_beam[dataframe,gcp,test,yaml]==' + beam_version,
             'virtualenv-clone'
-        ])
+        ],
+        cache_dir)
 
   def _venv(self):
     return self._create_venv_from_clone(self._base_python, self._packages)

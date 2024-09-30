@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+import argparse
 import logging
 import sys
 import time
@@ -23,7 +23,26 @@ from apache_beam.version import __version__ as beam_version
 from apache_beam.yaml import yaml_provider
 
 
-def cache_provider_artifacts():
+def _parse_arguments(argv):
+  parser = argparse.ArgumentParser()
+  parser.add_argument(
+      '--using_venv',
+      default=None,
+      required=False,
+      help='Path to an existing venv to use as base for cloning new venvs.')
+  return parser.parse_known_args(argv)
+
+
+def cache_provider_artifacts(argv=None):
+  args, _ = _parse_arguments(argv)
+
+  if '.dev' not in beam_version:
+    # Cache a base python venv for fast cloning.
+    t = time.time()
+    artifacts = yaml_provider.PypiExpansionService._create_venv_to_clone(
+        sys.executable, args.using_venv)
+    logging.info('Cached %s in %0.03f seconds.', artifacts, time.time() - t)
+
   providers_by_id = {}
   for providers in yaml_provider.standard_providers().values():
     for provider in providers:
@@ -35,12 +54,6 @@ def cache_provider_artifacts():
     if artifacts:
       logging.info(
           'Cached %s in %0.03f seconds.', ', '.join(artifacts), time.time() - t)
-  if '.dev' not in beam_version:
-    # Also cache a base python venv for fast cloning.
-    t = time.time()
-    artifacts = yaml_provider.PypiExpansionService._create_venv_to_clone(
-        sys.executable)
-    logging.info('Cached %s in %0.03f seconds.', artifacts, time.time() - t)
 
 
 if __name__ == '__main__':
