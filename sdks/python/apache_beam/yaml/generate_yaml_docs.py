@@ -205,9 +205,9 @@ def add_transform_links(transform, description, provider_list):
 
   meanwhile,
   ```
-    - type: MyTransform
-      config:
-        ...
+  - type: MyTransform
+    config:
+      ...
   ```
   Would remain unchanged.
 
